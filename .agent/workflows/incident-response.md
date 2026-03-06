@@ -1,0 +1,67 @@
+---
+name: incident-response
+type: workflow
+trigger: /incident-response
+description: Guide on-call engineer through structured incident response — triage, mitigation, and postmortem.
+inputs:
+  - severity
+  - service
+outputs:
+  - resolved_incident
+  - postmortem_draft
+roles:
+  - team-lead
+  - developer
+  - qa
+related-rules:
+  - reliability.md
+  - security-posture.md
+uses-skills:
+  - incident-response
+  - observability-setup
+quality-gates:
+  - incident channel created within 5 minutes of P0/P1 alert
+  - mitigation attempted per runbook before ad-hoc debugging
+  - postmortem scheduled within 48 hours
+---
+
+## Steps
+
+### 1. Triage — `@team-lead`
+- **Input:** incident alert, severity
+- **Actions:** fetch last 30 min of metrics for named service; check recent deployments (last 2 hours); identify correlated alerts; confirm severity classification
+- **Output:** severity confirmed; initial impact summary
+- **Done when:** impact is understood; owner assigned
+
+### 2. Establish Incident Channel — `@team-lead`
+- **Input:** confirmed severity
+- **Actions:** create `#incident-YYYY-MM-DD-<service>` Slack channel; post initial summary: what's broken, impact, timeline, current hypothesis
+- **Output:** incident channel active; team assembled
+- **Done when:** all relevant responders in channel
+
+### 3. Generate Hypothesis List — `@team-lead` + `@developer`
+- **Input:** metrics + recent deployment history
+- **Actions:** surface top 3 most likely causes: recent deployment? → test rollback hypothesis; DB connection errors? → check pool exhaustion runbook; 5xx spike? → check upstream dependencies
+- **Output:** prioritized hypothesis list with runbook links
+- **Done when:** top hypothesis identified; runbook commands ready
+
+### 4. Execute Mitigation — `@developer`
+- **Input:** prioritized hypothesis + runbook
+- **Actions:** per hypothesis (most likely first): provide exact kubectl / aws / psql commands; execute; monitor 2 minutes; if metrics improve → STABILIZE; else → next hypothesis
+- **Output:** metrics stabilizing or next hypothesis attempted
+- **Done when:** services healthy; error rate returned to baseline
+
+### 5. Draft Postmortem — `@team-lead`
+- **Input:** resolved incident + timeline
+- **Actions:** auto-generate postmortem template with timeline from monitoring data; flag gaps requiring human input; schedule postmortem review within 48 hours
+- **Output:** `postmortem_draft.md`
+- **Done when:** draft complete; meeting scheduled
+
+### 6. Communicate Resolution — `@pm`
+- **Input:** resolved incident
+- **Actions:** post resolution to `#deployments` and status page with impact summary and next steps
+- **Output:** stakeholders informed; status page updated
+- **Done when:** all affected parties notified
+
+## Exit
+Services healthy + postmortem scheduled + stakeholders notified = incident resolved.
